@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #import Inkscape_helper.inkscape_helper as helper
-import Inkscape_helper.inkscape_helper as doc
+import shelves_helper as doc
 
 #import simplestyle
 
@@ -16,45 +16,16 @@ class Shelves(doc.Effect):
     def __init__(self):
         doc.Effect.__init__(self)
 
-        self.OptionParser.add_option('--unit', action = 'store',
-          type = 'string', dest = 'unit', default = 'cm',
-          help = 'Unit, should be one of ')
-
-        self.OptionParser.add_option('--tool_diameter', action = 'store',
-          type = 'float', dest = 'tool_diameter', default = '0.3',
-          help = 'Tool diameter')
-
-        self.OptionParser.add_option('--tolerance', action = 'store',
-          type = 'float', dest = 'tolerance', default = '0.05',
-          help = '')
-
-        self.OptionParser.add_option('--thickness', action = 'store',
-          type = 'float', dest = 'thickness', default = '1.2',
-          help = 'Material thickness')
-
-        self.OptionParser.add_option('--width', action = 'store',
-          type = 'float', dest = 'width', default = '3.0',
-          help = 'Box width')
-
-        self.OptionParser.add_option('--height', action = 'store',
-          type = 'float', dest = 'height', default = '10.0',
-          help = 'Box height')
-
-        self.OptionParser.add_option('--depth', action = 'store',
-          type = 'float', dest = 'depth', default = '3.0',
-          help = 'Box depth')
-
-        self.OptionParser.add_option('--shelves', action = 'store',
-          type = 'string', dest = 'shelve_list', default = '',
-          help = 'semicolon separated list of shelve heigths')
-
-        self.OptionParser.add_option('--groove_depth', action = 'store',
-          type = 'float', dest = 'groove_depth', default = '0.5',
-          help = 'Groove depth')
-
-        self.OptionParser.add_option('--tab_size', action = 'store',
-          type = 'float', dest = 'tab_size', default = '10',
-          help = 'Approximate tab width (tabs will be evenly spaced along the length of the edge)')
+        self.arg_parser.add_argument('--unit', default = 'cm', help = 'Unit, should be one of ')
+        self.arg_parser.add_argument('--tool_diameter',  type = float, default = '0.3', help = 'Tool diameter')
+        self.arg_parser.add_argument('--tolerance', type = float, default = '0.05')
+        self.arg_parser.add_argument('--thickness', type = float, dest = 'thickness', default = '1.2', help = 'Material thickness')
+        self.arg_parser.add_argument('--width', type = float, default = '3.0', help = 'Box width')
+        self.arg_parser.add_argument('--height', type = float, default = '10.0', help = 'Box height')
+        self.arg_parser.add_argument('--depth',  type = float, default = '3.0', help = 'Box depth')
+        self.arg_parser.add_argument('--shelve_list',default = '', help = 'semicolon separated list of shelve heigths')
+        self.arg_parser.add_argument('--groove_depth', type = float, default = '0.5', help = 'Groove depth')
+        self.arg_parser.add_argument('--tab_size',  type = float, default = '10', help = 'Approximate tab width (tabs will be evenly spaced along the length of the edge)')
 
     def effect(self):
         """
@@ -77,7 +48,7 @@ class Shelves(doc.Effect):
 
         for s in self.options.shelve_list.split(';'):
             try:
-                shelves.append(self.unittouu(str(s).strip() + unit))
+                shelves.append(self.svg.unittouu(str(s).strip() + unit))
             except ValueError:
                 doc.errormsg('Error: nonnumeric value in shelves (' + s + ')')
                 error = True
@@ -85,18 +56,18 @@ class Shelves(doc.Effect):
         if error:
             exit()
 
-        height = self.unittouu(str(self.options.height) + unit)
-        width = self.unittouu(str(self.options.width) + unit)
-        depth = self.unittouu(str(self.options.depth) + unit)
-        thickness = self.unittouu(str(self.options.thickness) + unit)
-        groove_depth = self.unittouu(str(self.options.groove_depth) + unit)
-        tab_size = self.unittouu(str(self.options.tab_size) + unit)
-        tolerance = self.unittouu(str(self.options.tolerance) + unit)
-        tool_diameter = self.unittouu(str(self.options.tool_diameter) + unit)
+        height = self.svg.unittouu(str(self.options.height) + unit)
+        width = self.svg.unittouu(str(self.options.width) + unit)
+        depth = self.svg.unittouu(str(self.options.depth) + unit)
+        thickness = self.svg.unittouu(str(self.options.thickness) + unit)
+        groove_depth = self.svg.unittouu(str(self.options.groove_depth) + unit)
+        tab_size = self.svg.unittouu(str(self.options.tab_size) + unit)
+        tolerance = self.svg.unittouu(str(self.options.tolerance) + unit)
+        tool_diameter = self.svg.unittouu(str(self.options.tool_diameter) + unit)
 
         doc_root = self.document.getroot()
-        docWidth = self.unittouu(doc_root.get('width'))
-        docHeigh = self.unittouu(doc_root.attrib['height'])
+        docWidth = self.svg.unittouu(doc_root.get('width'))
+        docHeigh = self.svg.unittouu(doc_root.attrib['height'])
 
         layer = doc.layer(doc_root, 'Shelves')
 
@@ -223,4 +194,4 @@ class Shelves(doc.Effect):
 
 # Create effect instance and apply it.
 effect = Shelves()
-effect.affect()
+effect.run()
