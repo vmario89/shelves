@@ -1,47 +1,44 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+from inkscape_helper.Coordinate import Coordinate
+import inkex
+from lxml import etree
 
-#import Inkscape_helper.inkscape_helper as helper
-import shelves_helper as doc
+default_style = str(inkex.Style({'stroke': '#000000','stroke-width': '1','fill': 'none'}))
+groove_style = str(inkex.Style({'stroke': '#0000FF','stroke-width': '1','fill': 'none'}))
+mark_style = str(inkex.Style({'stroke': '#00FF00','stroke-width': '1','fill': 'none'}))
 
-#import simplestyle
+def draw_line(parent, start, end, style = default_style):
+    line_attribs = {'style': style,
+                    'd': 'M '+str(start.x)+','+str(start.y)+' L '+str(end.x)+','+str(end.y)}
 
-
-#Note: keep in mind that SVG coordinates start in the top-left corner i.e. with an inverted y-axis
-
-
-class Shelves(doc.Effect):
-    """
-    Creates a new layer with the drawings for a parametrically generaded box.
-    """
+    etree.SubElement(parent, inkex.addNS('path', 'svg'), line_attribs)
+	
+class Shelves(inkex.Effect):
     def __init__(self):
-        doc.Effect.__init__(self)
+        inkex.Effect.__init__(self)
 
         self.arg_parser.add_argument('--unit', default = 'cm', help = 'Unit, should be one of ')
-        self.arg_parser.add_argument('--tool_diameter',  type = float, default = '0.3', help = 'Tool diameter')
+        self.arg_parser.add_argument('--tool_diameter', type = float, default = '0.3', help = 'Tool diameter')
         self.arg_parser.add_argument('--tolerance', type = float, default = '0.05')
         self.arg_parser.add_argument('--thickness', type = float, dest = 'thickness', default = '1.2', help = 'Material thickness')
         self.arg_parser.add_argument('--width', type = float, default = '3.0', help = 'Box width')
         self.arg_parser.add_argument('--height', type = float, default = '10.0', help = 'Box height')
-        self.arg_parser.add_argument('--depth',  type = float, default = '3.0', help = 'Box depth')
+        self.arg_parser.add_argument('--depth', type = float, default = '3.0', help = 'Box depth')
         self.arg_parser.add_argument('--shelve_list',default = '', help = 'semicolon separated list of shelve heigths')
         self.arg_parser.add_argument('--groove_depth', type = float, default = '0.5', help = 'Groove depth')
-        self.arg_parser.add_argument('--tab_size',  type = float, default = '10', help = 'Approximate tab width (tabs will be evenly spaced along the length of the edge)')
+        self.arg_parser.add_argument('--tab_size', type = float, default = '10', help = 'Approximate tab width (tabs will be evenly spaced along the length of the edge)')
 
     def effect(self):
-        """
-        Draws a shelved cupboard, based on provided parameters
-        """
-
         # input sanity check and unit conversion
         error = False
-
+        self.knownUnits = ['in', 'pt', 'px', 'mm', 'cm', 'm', 'km', 'pc', 'yd', 'ft']
         if self.options.unit not in self.knownUnits:
-            doc.errormsg('Error: unknown unit. '+ self.options.unit)
+            inkex.errormsg('Error: unknown unit. '+ self.options.unit)
             error = True
         unit = self.options.unit
 
         if min(self.options.height, self.options.width, self.options.depth) == 0:
-            doc.errormsg('Error: Dimensions must be non zero')
+            inkex.errormsg('Error: Dimensions must be non zero')
             error = True
 
         shelves = []
@@ -50,7 +47,7 @@ class Shelves(doc.Effect):
             try:
                 shelves.append(self.svg.unittouu(str(s).strip() + unit))
             except ValueError:
-                doc.errormsg('Error: nonnumeric value in shelves (' + s + ')')
+                inkex.errormsg('Error: nonnumeric value in shelves (' + s + ')')
                 error = True
 
         if error:
@@ -68,14 +65,15 @@ class Shelves(doc.Effect):
         doc_root = self.document.getroot()
         docWidth = self.svg.unittouu(doc_root.get('width'))
         docHeigh = self.svg.unittouu(doc_root.attrib['height'])
-
-        layer = doc.layer(doc_root, 'Shelves')
+        layer = etree.SubElement(doc_root, 'g')
+        layer.set(inkex.addNS('label', 'inkscape'), 'Shelves')
+        layer.set(inkex.addNS('groupmode', 'inkscape'), 'layer')
 
         def H(x):
-            return doc.Coordinate(x, 0)
+            return Coordinate(x, 0)
 
         def V(x):
-            return doc.Coordinate(0, x)
+            return Coordinate(0, x)
 
         def tab_count(dist, desired_tab_size):
             F = int(dist // desired_tab_size)
@@ -87,13 +85,13 @@ class Shelves(doc.Effect):
             return 2 * n + 1
 
         # create groups for the different parts
-        g_l_side = doc.group(layer)
-        g_r_side = doc.group(layer)
-        g_top = doc.group(layer)
-        g_bottom = doc.group(layer)
-        g_back = doc.group(layer)
-        g_divider = doc.group(layer)
-
+        g_l_side = etree.SubElement(layer, 'g')
+        g_r_side = etree.SubElement(layer, 'g')
+        g_top = etree.SubElement(layer, 'g')
+        g_bottom = etree.SubElement(layer, 'g')
+        g_back = etree.SubElement(layer, 'g')
+        g_divider = etree.SubElement(layer, 'g')
+		
         h_spacing = H(10 + thickness)
         v_spacing = V(10 + thickness)
 
@@ -113,35 +111,34 @@ class Shelves(doc.Effect):
         bottom_origin = back_origin + v_spacing + V(height)
 
         def draw_tabbed_edge(parent, edge_start, tab, inset, count, invert = False):
-            start = edge_start + (inset if invert else doc.Coordinate(0, 0))
+            start = edge_start + (inset if invert else Coordinate(0, 0))
             for i in range(count):
                 if (i % 2 == 0) != invert:
                     t_offset = inset
                 else:
-                    t_offset = doc.Coordinate(0, 0)
+                    t_offset = Coordinate(0, 0)
                 end = start + tab
-                #inkex.debug(str((i, start, end, t_offset)))
-                doc.draw_line(parent, start, end)
+                #inkex.utils.debug(str((i, start, end, t_offset)))
+                draw_line(parent, start, end)
                 if i < count - 1:   # skip last one
                     start = edge_start + t_offset + tab * (i + 1)
-                    doc.draw_line(parent, end, start)
+                    draw_line(parent, end, start)
 
         # top
-        doc.draw_line(g_top, top_origin, top_origin + H(width))
+        draw_line(g_top, top_origin, top_origin + H(width))
         draw_tabbed_edge(g_top, top_origin, V(d_tab_size), H(thickness), d_tab_count, False)
         draw_tabbed_edge(g_top, top_origin + H(width) , V(d_tab_size), H(-thickness), d_tab_count, False)
         draw_tabbed_edge(g_top, top_origin + V(depth), h_tab, V(-thickness), h_tab_count, True)
         # groove
-        groove_style = doc.groove_style
         center_v_groove_l = (width - thickness) / 2 - tolerance
         groove_l_side = top_origin + H(center_v_groove_l)
         groove_r_side = groove_l_side + H(thickness + tolerance * 2)
-        doc.draw_line(g_top, groove_l_side, groove_l_side + V(depth), groove_style)
-        doc.draw_line(g_top, groove_r_side, groove_r_side + V(depth), groove_style)
+        draw_line(g_top, groove_l_side, groove_l_side + V(depth), groove_style)
+        draw_line(g_top, groove_r_side, groove_r_side + V(depth), groove_style)
 
 
         # left
-        doc.draw_line(g_l_side, left_side_origin, left_side_origin + V(height))
+        draw_line(g_l_side, left_side_origin, left_side_origin + V(height))
         draw_tabbed_edge(g_l_side, left_side_origin + H(depth), v_tab, H(-thickness), v_tab_count, True)
         draw_tabbed_edge(g_l_side, left_side_origin, H(d_tab_size), V(thickness), d_tab_count, True)
         draw_tabbed_edge(g_l_side, left_side_origin + V(height), H(d_tab_size), V(-thickness), d_tab_count, True)
@@ -154,25 +151,25 @@ class Shelves(doc.Effect):
         # groove
         groove_l_side = back_origin + H(center_v_groove_l)
         groove_r_side = groove_l_side + H(thickness + tolerance * 2)
-        doc.draw_line(g_back, groove_l_side, groove_l_side + V(height), groove_style)
-        doc.draw_line(g_back, groove_r_side, groove_r_side + V(height), groove_style)
+        draw_line(g_back, groove_l_side, groove_l_side + V(height), groove_style)
+        draw_line(g_back, groove_r_side, groove_r_side + V(height), groove_style)
 
         # right
-        doc.draw_line(g_r_side, right_side_origin + H(depth), right_side_origin + H(depth) + V(height))
+        draw_line(g_r_side, right_side_origin + H(depth), right_side_origin + H(depth) + V(height))
         draw_tabbed_edge(g_r_side, right_side_origin, v_tab, H(thickness), v_tab_count, True)
         draw_tabbed_edge(g_r_side, right_side_origin, H(d_tab_size), V(thickness), d_tab_count, True)
         draw_tabbed_edge(g_r_side, right_side_origin + V(height), H(d_tab_size), V(-thickness), d_tab_count, True)
 
         # bottom
-        doc.draw_line(g_bottom, bottom_origin + V(depth), bottom_origin + V(depth) + H(width))
+        draw_line(g_bottom, bottom_origin + V(depth), bottom_origin + V(depth) + H(width))
         draw_tabbed_edge(g_bottom, bottom_origin, V(d_tab_size), H(thickness), d_tab_count, False)
         draw_tabbed_edge(g_bottom, bottom_origin + H(width) , V(d_tab_size), H(-thickness), d_tab_count, False)
         draw_tabbed_edge(g_bottom, bottom_origin, h_tab, V(thickness), h_tab_count, True)
         # groove
         groove_l_side = bottom_origin + H(center_v_groove_l)
         groove_r_side = groove_l_side + H(thickness + tolerance * 2)
-        doc.draw_line(g_bottom, groove_l_side, groove_l_side + V(depth), groove_style)
-        doc.draw_line(g_bottom, groove_r_side, groove_r_side + V(depth), groove_style)
+        draw_line(g_bottom, groove_l_side, groove_l_side + V(depth), groove_style)
+        draw_line(g_bottom, groove_r_side, groove_r_side + V(depth), groove_style)
 
         #shelves
         prev_top = 0
@@ -181,17 +178,16 @@ class Shelves(doc.Effect):
             s_top = prev_top + thickness + s - tolerance
             s_bottom = s_top + thickness + tolerance * 2
 
-            doc.draw_line(g_l_side, left_side_origin + V(s_top), left_side_origin + V(s_top) + H(depth - gr_short), groove_style)
-            doc.draw_line(g_l_side, left_side_origin + V(s_bottom), left_side_origin + V(s_bottom) + H(depth - gr_short), groove_style)
+            draw_line(g_l_side, left_side_origin + V(s_top), left_side_origin + V(s_top) + H(depth - gr_short), groove_style)
+            draw_line(g_l_side, left_side_origin + V(s_bottom), left_side_origin + V(s_bottom) + H(depth - gr_short), groove_style)
 
-            doc.draw_line(g_r_side, right_side_origin + V(s_top) + H(gr_short), right_side_origin + V(s_top) + H(depth), groove_style)
-            doc.draw_line(g_r_side, right_side_origin + V(s_bottom) + H(gr_short), right_side_origin + V(s_bottom) + H(depth), groove_style)
+            draw_line(g_r_side, right_side_origin + V(s_top) + H(gr_short), right_side_origin + V(s_top) + H(depth), groove_style)
+            draw_line(g_r_side, right_side_origin + V(s_bottom) + H(gr_short), right_side_origin + V(s_bottom) + H(depth), groove_style)
 
-            doc.draw_line(g_back, back_origin + V(s_top) + H(gr_short), back_origin + V(s_top) + H(width - gr_short), groove_style)
-            doc.draw_line(g_back, back_origin + V(s_bottom)  + H(gr_short), back_origin + V(s_bottom) + H(width - gr_short), groove_style)
+            draw_line(g_back, back_origin + V(s_top) + H(gr_short), back_origin + V(s_top) + H(width - gr_short), groove_style)
+            draw_line(g_back, back_origin + V(s_bottom)  + H(gr_short), back_origin + V(s_bottom) + H(width - gr_short), groove_style)
 
             prev_top = s_top
 
 # Create effect instance and apply it.
-effect = Shelves()
-effect.run()
+Shelves().run()
